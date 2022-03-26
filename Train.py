@@ -6,9 +6,11 @@ import torch
 import pandas as pd
 from torch import nn
 import torch.nn.functional as F
+from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
 import skimage
+import cv2
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,7 +35,9 @@ class GraspDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name = os.path.join(self.image_files_list[idx])
-        image = skimage.io.imread(img_name)
+        image = cv2.imread(img_name)
+        transform = transforms.ToTensor()
+        imageTensor = transform(image)
 
         search_term = img_name[0:-8]
 
@@ -46,11 +50,14 @@ class GraspDataset(Dataset):
         grasp = grasps.sample()
         grasp_list = grasp.values.tolist()
 
-        return image, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
+        return imageTensor, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
 
 
 trainSet = GraspDataset(datafolder=ROOT_DIR + "/Data/training/", datatype='train')
 testSet = GraspDataset(datafolder=ROOT_DIR + "/Data/testing/")
+
+trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
+testLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
 
 # Direct Regression Grasp Model:
 class NeuralNetwork(nn.Module):
@@ -68,7 +75,7 @@ class NeuralNetwork(nn.Module):
         self.last_conv = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2)  # 15*15*256
         # Third pooling -> 7*7*256
 
-        self.fc1 = nn.Linear(in_features=7 * 7 * 256, out_features=512)
+        self.fc1 = nn.Linear(in_features=50176, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w]
 
@@ -83,11 +90,38 @@ class NeuralNetwork(nn.Module):
         x = self.pool(F.relu(x))
 
         x = torch.flatten(x, 1)
+
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
 
 model = NeuralNetwork()
 loss_fn = nn.MSELoss()
+optimizer = Adam(model.parameters(), lr=0.05)
+
+for epoch in range(2):  # loop over the dataset multiple times
+    running_loss = 0.0
+    for i, data in enumerate(trainLoader, 0):
+        # get the inputs; data is a list of [inputs, labels]
+        image, x, y, t, h, w = data
+        print(image.shape)
+
+
+        # zero the parameter gradients
+        optimizer.zero_grad()
+
+        # forward + backward + optimize
+        outputs = model(image)
+        loss = loss_fn(outputs, x, y, t, h, w)
+        loss.backward()
+        optimizer.step()
+
+        # print statistics
+        running_loss += loss.item()
+        if i % 2000 == 1999:    # print every 2000 mini-batches
+            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+            running_loss = 0.0
+
+print('Finished Training')
