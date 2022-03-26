@@ -103,18 +103,22 @@ optimizer = Adam(model.parameters(), lr=0.05)
 
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
+    print("Epoch: ", epoch)
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [inputs, labels]
         image, x, y, t, h, w = data
-        print(image.shape)
-
+        targetArray = [x, y, t, h, w]
+        target = torch.FloatTensor(targetArray)
+        #print(image.shape)
 
         # zero the parameter gradients
-        optimizer.zero_grad()
+        
 
         # forward + backward + optimize
         outputs = model(image)
-        loss = loss_fn(outputs, x, y, t, h, w)
+        print(outputs)
+        loss = loss_fn(outputs, target)
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -125,3 +129,7 @@ for epoch in range(2):  # loop over the dataset multiple times
             running_loss = 0.0
 
 print('Finished Training')
+
+
+
+
