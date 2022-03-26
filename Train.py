@@ -33,20 +33,24 @@ class GraspDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name = os.path.join(self.image_files_list[idx])
-        print(img_name)
         image = skimage.io.imread(img_name)
 
-        grasps_file = os.path.join(self.datafolder, self.grasp_files_list[idx])
+        search_term = img_name[0:-8]
+
+        for file in self.grasp_files_list:
+            if file.startswith(search_term):
+                grasps_file = os.path.join(self.datafolder, file)
+
         grasps = pandas.read_csv(grasps_file, sep=';', names=["x", "y", "t", "h", "w"])
         # Pick a random grasp to return as the ground truth.
         grasp = grasps.sample()
-        print(grasp)
+        grasp_list = grasp.values.tolist()
 
-        return image,
+        return image, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
 
 
 trainset = GraspDataset(datafolder=ROOT_DIR + "/Data/training/", datatype='train')
-trainset.__getitem__(1)
+trainset.__getitem__(10)
 
 
 # Direct Regression Grasp Model:
