@@ -49,9 +49,8 @@ class GraspDataset(Dataset):
         return image, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
 
 
-trainset = GraspDataset(datafolder=ROOT_DIR + "/Data/training/", datatype='train')
-trainset.__getitem__(10)
-
+trainSet = GraspDataset(datafolder=ROOT_DIR + "/Data/training/", datatype='train')
+testSet = GraspDataset(datafolder=ROOT_DIR + "/Data/testing/")
 
 # Direct Regression Grasp Model:
 class NeuralNetwork(nn.Module):
