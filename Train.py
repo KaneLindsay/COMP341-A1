@@ -85,7 +85,9 @@ class NeuralNetwork(nn.Module):
 
         x = self.second_conv(x)
         x = self.pool(F.relu(x))
-
+        
+        #x = self.conv_stack(x)
+        
         x = self.last_conv(x)
         x = self.pool(F.relu(x))
 
@@ -100,21 +102,25 @@ class NeuralNetwork(nn.Module):
 model = NeuralNetwork()
 loss_fn = nn.MSELoss()
 optimizer = Adam(model.parameters(), lr=0.05)
-
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [inputs, labels]
         image, x, y, t, h, w = data
-        print(image.shape)
+        #print(image.shape)
 
 
         # zero the parameter gradients
-        optimizer.zero_grad()
-
+        targetArray = [x, y, t, h, w]
+        target = torch.FloatTensor(targetArray) 
+        #print(target)
         # forward + backward + optimize
         outputs = model(image)
-        loss = loss_fn(outputs, x, y, t, h, w)
+        print(outputs)
+
+        loss = loss_fn(outputs, target)
+        optimizer.zero_grad()
+
         loss.backward()
         optimizer.step()
 
