@@ -14,7 +14,7 @@ import cv2
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
+# Dataset class for retrieving data from resource files.
 class GraspDataset(Dataset):
     def __init__(self, datafolder, datatype='train', transform=None):
         self.datafolder = datafolder
@@ -59,72 +59,73 @@ testSet = GraspDataset(datafolder=ROOT_DIR + "/Data/testing/")
 trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
 testLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
 
-# Direct Regression Grasp Model:
+
+# Direct Regression Grasp Model
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super(NeuralNetwork, self).__init__()
-        # Initial image size: 1024*1024*3
-        self.first_conv = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2)  # Output dim: 511*511*3
-        self.pool = nn.MaxPool2d(kernel_size=3, stride=2)  # 127*127*64
-        self.second_conv = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2)  # 63*63*128
-        # Second pooling -> 31*31*128
-        self.conv_stack = nn.Sequential(
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1),  # 31*31*128
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1),  # 31*31*128
-        )
-        self.last_conv = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2)  # 15*15*256
-        # Third pooling -> 7*7*256
+        # Initial image size -> 1024*1024*3
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2)  # Output dim: 510 * 510 * 3
+        self.pool = nn.MaxPool2d(kernel_size=3, stride=2)  # 254 * 254 * 64
 
-        self.fc1 = nn.Linear(in_features=50176, out_features=512)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2)  # 126*126*128
+        # Second pooling -> 62 * 62 * 128
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=2)  # 62*62*128
+        # Repeated -> 62*62*128
+
+        self.conv4 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=2)  # 30*30*256
+        # Third pooling -> 14 * 14 * 256
+        self.fc1 = nn.Linear(in_features=57600, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w]
 
     def forward(self, x):
-        x = self.first_conv(x)
+        x = self.conv1(x)
         x = self.pool(F.relu(x))
 
-        x = self.second_conv(x)
+        x = self.conv2(x)
         x = self.pool(F.relu(x))
 
+        # Same convolution used twice.
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv3(x))
 
-        x = self.last_conv(x)
+        x = self.conv4(x)
         x = self.pool(F.relu(x))
 
         x = torch.flatten(x, 1)
-
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
+
         return x
 
 
 model = NeuralNetwork()
 loss_fn = nn.MSELoss()
-optimizer = Adam(model.parameters(), lr=0.05)
+optimizer = Adam(model.parameters(), lr=0.001)
 
+# Training Loop
 for epoch in range(5):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [inputs, labels]
         image, x, y, t, h, w = data
 
+        optimizer.zero_grad()
+
         outputs = model(image)
 
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
+        targetTensor = targetTensor.unsqueeze(0)
 
-        #print("OUTPUT_TENSOR: ", outputs)
-        #print("TARGET_TENSOR: ", targetTensor)
+        print("OUTPUT_TENSOR: ", outputs.data)
+        print("TARGET_TENSOR: ", targetTensor)
 
         loss = loss_fn(outputs, targetTensor)
         loss.backward()
 
         optimizer.step()
-
-        # print statistics
-        running_loss += loss.item()
-        if i % 10 == 9:    # print every 2000 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
-            running_loss = 0.0
 
 print('Finished Training')
