@@ -131,17 +131,17 @@ def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
 
 
 def showImageGrasp(image, x, y, t, h, w, rotation):
-    reshapedImage = image.reshape(3, 1024, 1024).permute(2, 1, 0)
+    reshapedImage = image.reshape(3, 1024, 1024).permute(1, 2, 0)
     halfHeight = h / 2
     halfWidth = w / 2
     print("PERMUTED IMAGE SHAPE", reshapedImage.shape)
 
     plt.imshow(reshapedImage)
 
-    topLeft = [x - halfWidth, y + halfHeight]
-    topRight = [x + halfWidth, y + halfHeight]
-    bottomLeft = [x - halfWidth, y - halfHeight]
-    bottomRight = [x + halfWidth, y - halfHeight]
+    topLeft = [x - halfWidth, y - halfHeight]
+    topRight = [x + halfWidth, y - halfHeight]
+    bottomLeft = [x - halfWidth, y + halfHeight]
+    bottomRight = [x + halfWidth, y + halfHeight]
 
     if rotation:
         topLeftRotated = rotate([x, y], topLeft, t)
