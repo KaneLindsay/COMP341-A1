@@ -2,6 +2,7 @@ import math
 import os
 import random
 
+import numpy
 import pandas
 import torch
 import pandas as pd
@@ -109,23 +110,37 @@ loss_fn = nn.MSELoss()
 optimizer = Adam(model.parameters(), lr=0.001)
 
 
+def rotate(origin, point, angle):
+    ox, oy = origin
+    px, py = point
+
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+    return qx, qy
+
+
 def showImageGrasp(image, x, y, t, h, w):
     reshapedImage = image.reshape(3, 1024, 1024).permute(2, 1, 0)
     halfHeight = h / 2
     halfWidth = w / 2
+
+    topLeftCorner = rotate([x, y], [x - halfWidth, y + halfHeight], t)
+    topRightCorner = rotate([x,y], [x+halfWidth, y+halfHeight], t)
+    bottomRightCorner = rotate([x, y], [x + halfWidth, y - halfHeight], t)
+    bottomLeftCorner = rotate([x,y], [x-halfWidth, y-halfHeight], t)
 
     print("PERMUTED IMAGE SHAPE", reshapedImage.shape)
     plt.imshow(reshapedImage)
     # plot the center point
     plt.plot([x], [y], 'x')
     # Top left to top right
-    plt.plot([x - halfWidth, x + halfWidth], [y + halfHeight, y + halfHeight])
+    plt.plot([topLeftCorner[0], topRightCorner[0]], [topLeftCorner[1], topRightCorner[1]])
     # Top left to bottom left
-    plt.plot([x - halfWidth, x - halfWidth], [y + halfHeight, y - halfHeight])
+    plt.plot([topLeftCorner[0], bottomLeftCorner[0]], [topLeftCorner[1], bottomLeftCorner[1]])
     # Top right to bottom right
-    plt.plot([x + halfWidth, x + halfWidth], [y + halfHeight, y - halfHeight])
+    plt.plot([topRightCorner[0], bottomRightCorner[0]], [topRightCorner[1], bottomRightCorner[1]])
     # Bottom left to bottom right
-    plt.plot([x - halfWidth, x + halfWidth], [y - halfHeight, y - halfHeight])
+    plt.plot([bottomLeftCorner[0], bottomRightCorner[0]], [bottomLeftCorner[1], bottomRightCorner[1]])
     plt.show()
     return
 
