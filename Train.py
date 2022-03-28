@@ -1,6 +1,8 @@
+import math
 import os
 import random
 
+import numpy
 import pandas
 import torch
 import pandas as pd
@@ -11,8 +13,10 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
 import skimage
 import cv2
+import matplotlib.pyplot as plt
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 # Dataset class for retrieving data from resource files.
 class GraspDataset(Dataset):
@@ -105,12 +109,49 @@ model = NeuralNetwork()
 loss_fn = nn.MSELoss()
 optimizer = Adam(model.parameters(), lr=0.001)
 
+
+def rotate(origin, point, angle):
+    ox, oy = origin
+    px, py = point
+
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+    return qx, qy
+
+
+def showImageGrasp(image, x, y, t, h, w):
+    reshapedImage = image.reshape(3, 1024, 1024).permute(2, 1, 0)
+    halfHeight = h / 2
+    halfWidth = w / 2
+
+    topLeftCorner = rotate([x, y], [x - halfWidth, y + halfHeight], t)
+    topRightCorner = rotate([x,y], [x+halfWidth, y+halfHeight], t)
+    bottomRightCorner = rotate([x, y], [x + halfWidth, y - halfHeight], t)
+    bottomLeftCorner = rotate([x,y], [x-halfWidth, y-halfHeight], t)
+
+    print("PERMUTED IMAGE SHAPE", reshapedImage.shape)
+    plt.imshow(reshapedImage)
+    # plot the center point
+    plt.plot([x], [y], 'x')
+    # Top left to top right
+    plt.plot([topLeftCorner[0], topRightCorner[0]], [topLeftCorner[1], topRightCorner[1]])
+    # Top left to bottom left
+    plt.plot([topLeftCorner[0], bottomLeftCorner[0]], [topLeftCorner[1], bottomLeftCorner[1]])
+    # Top right to bottom right
+    plt.plot([topRightCorner[0], bottomRightCorner[0]], [topRightCorner[1], bottomRightCorner[1]])
+    # Bottom left to bottom right
+    plt.plot([bottomLeftCorner[0], bottomRightCorner[0]], [bottomLeftCorner[1], bottomRightCorner[1]])
+    plt.show()
+    return
+
+
 # Training Loop
 for epoch in range(5):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [inputs, labels]
         image, x, y, t, h, w = data
+        print("IMAGE SHAPE", image.shape)
 
         optimizer.zero_grad()
 
@@ -119,7 +160,7 @@ for epoch in range(5):  # loop over the dataset multiple times
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
         targetTensor = targetTensor.unsqueeze(0)
-
+        showImageGrasp(image, x, y, t, h, w)
         print("OUTPUT_TENSOR: ", outputs.data)
         print("TARGET_TENSOR: ", targetTensor)
 
