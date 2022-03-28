@@ -1,3 +1,4 @@
+import math
 import os
 import random
 
@@ -11,8 +12,10 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
 import skimage
 import cv2
+import matplotlib.pyplot as plt
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 # Dataset class for retrieving data from resource files.
 class GraspDataset(Dataset):
@@ -105,12 +108,35 @@ model = NeuralNetwork()
 loss_fn = nn.MSELoss()
 optimizer = Adam(model.parameters(), lr=0.001)
 
+
+def showImageGrasp(image, x, y, t, h, w):
+    reshapedImage = image.reshape(3, 1024, 1024).permute(2, 1, 0)
+    halfHeight = h / 2
+    halfWidth = w / 2
+
+    print("PERMUTED IMAGE SHAPE", reshapedImage.shape)
+    plt.imshow(reshapedImage)
+    # plot the center point
+    plt.plot([x], [y], 'x')
+    # Top left to top right
+    plt.plot([x - halfWidth, x + halfWidth], [y + halfHeight, y + halfHeight])
+    # Top left to bottom left
+    plt.plot([x - halfWidth, x - halfWidth], [y + halfHeight, y - halfHeight])
+    # Top right to bottom right
+    plt.plot([x + halfWidth, x + halfWidth], [y + halfHeight, y - halfHeight])
+    # Bottom left to bottom right
+    plt.plot([x - halfWidth, x + halfWidth], [y - halfHeight, y - halfHeight])
+    plt.show()
+    return
+
+
 # Training Loop
 for epoch in range(5):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [inputs, labels]
         image, x, y, t, h, w = data
+        print("IMAGE SHAPE", image.shape)
 
         optimizer.zero_grad()
 
@@ -119,7 +145,7 @@ for epoch in range(5):  # loop over the dataset multiple times
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
         targetTensor = targetTensor.unsqueeze(0)
-
+        showImageGrasp(image, x, y, t, h, w)
         print("OUTPUT_TENSOR: ", outputs.data)
         print("TARGET_TENSOR: ", targetTensor)
 
