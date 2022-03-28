@@ -119,28 +119,42 @@ def rotate(origin, point, angle):
     return qx, qy
 
 
-def showImageGrasp(image, x, y, t, h, w):
+def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
+    # Top left to top right
+    plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]])
+    # Top left to bottom left
+    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]])
+    # Top right to bottom right
+    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]])
+    # Bottom left to bottom right
+    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]])
+
+
+def showImageGrasp(image, x, y, t, h, w, rotation):
     reshapedImage = image.reshape(3, 1024, 1024).permute(2, 1, 0)
     halfHeight = h / 2
     halfWidth = w / 2
-
-    topLeftCorner = rotate([x, y], [x - halfWidth, y + halfHeight], t)
-    topRightCorner = rotate([x,y], [x+halfWidth, y+halfHeight], t)
-    bottomRightCorner = rotate([x, y], [x + halfWidth, y - halfHeight], t)
-    bottomLeftCorner = rotate([x,y], [x-halfWidth, y-halfHeight], t)
-
     print("PERMUTED IMAGE SHAPE", reshapedImage.shape)
+
     plt.imshow(reshapedImage)
-    # plot the center point
-    plt.plot([x], [y], 'x')
-    # Top left to top right
-    plt.plot([topLeftCorner[0], topRightCorner[0]], [topLeftCorner[1], topRightCorner[1]])
-    # Top left to bottom left
-    plt.plot([topLeftCorner[0], bottomLeftCorner[0]], [topLeftCorner[1], bottomLeftCorner[1]])
-    # Top right to bottom right
-    plt.plot([topRightCorner[0], bottomRightCorner[0]], [topRightCorner[1], bottomRightCorner[1]])
-    # Bottom left to bottom right
-    plt.plot([bottomLeftCorner[0], bottomRightCorner[0]], [bottomLeftCorner[1], bottomRightCorner[1]])
+
+    topLeft = [x - halfWidth, y + halfHeight]
+    topRight = [x + halfWidth, y + halfHeight]
+    bottomLeft = [x - halfWidth, y - halfHeight]
+    bottomRight = [x + halfWidth, y - halfHeight]
+
+    if rotation:
+        topLeftRotated = rotate([x, y], topLeft, t)
+        topRightRotated = rotate([x, y], topRight, t)
+        bottomLeftRotated = rotate([x, y], bottomLeft, t)
+        bottomRightRotated = rotate([x, y], bottomRight, t)
+
+        # plot the center point
+        plt.plot([x], [y], 'x')
+        plotCorners(topLeftRotated, topRightRotated, bottomLeftRotated, bottomRightRotated)
+    else:
+        plt.plot([x], [y], 'x')
+        plotCorners(topLeft, topRight, bottomLeft, bottomRight)
     plt.show()
     return
 
@@ -160,7 +174,9 @@ for epoch in range(5):  # loop over the dataset multiple times
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
         targetTensor = targetTensor.unsqueeze(0)
-        showImageGrasp(image, x, y, t, h, w)
+
+        showImageGrasp(image, x, y, t, h, w, rotation=True)
+
         print("OUTPUT_TENSOR: ", outputs.data)
         print("TARGET_TENSOR: ", targetTensor)
 
