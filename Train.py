@@ -118,7 +118,6 @@ def rotate(origin, point, angle):
     qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
     return qx, qy
 
-
 def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
     # Top left to top right
     plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]])
@@ -155,9 +154,6 @@ def showImageGrasp(image, x, y, t, h, w, rotation):
     else:
         plt.plot([x], [y], 'x')
         plotCorners(topLeft, topRight, bottomLeft, bottomRight)
-    plt.show()
-    return
-
 
 # Training Loop
 for epoch in range(5):  # loop over the dataset multiple times
