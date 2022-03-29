@@ -57,7 +57,7 @@ trainSet = GraspDataset(datafolder=ROOT_DIR + "/Data/training/", datatype='train
 testSet = GraspDataset(datafolder=ROOT_DIR + "/Data/testing/")
 
 trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
-testLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
+testLoader = DataLoader(testSet, batch_size=1, shuffle=True, num_workers=0)
 
 # Direct Regression Grasp Model:
 class NeuralNetwork(nn.Module):
@@ -78,6 +78,10 @@ class NeuralNetwork(nn.Module):
         self.fc1 = nn.Linear(in_features=50176, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w]
+        self.output = nn.Sequential(
+            nn.Flatten(0),
+            nn.Linear(in_features=5, out_features=10)            
+        )
 
     def forward(self, x):
         x = self.first_conv(x)
@@ -95,6 +99,12 @@ class NeuralNetwork(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+    
+    def classify(self, x):
+        x = self.output(x)
+        sm = nn.Softmax(0)
+        
+        return sm(x)
 
 
 model = NeuralNetwork()
@@ -116,9 +126,21 @@ for epoch in range(2):  # loop over the dataset multiple times
 
         # forward + backward + optimize
         outputs = model(image)
+<<<<<<< Updated upstream
         print(outputs)
         loss = loss_fn(outputs, target)
         optimizer.zero_grad()
+=======
+        predictions = model.classify(outputs)        
+
+        targetList = [x, y, t, h, w]
+        targetTensor = torch.FloatTensor(targetList)
+        targetTensor = targetTensor.unsqueeze(0)
+
+        # showImageGrasp(image, x, y, t, h, w, rotation=True)
+
+        loss = loss_fn(outputs, targetTensor)
+>>>>>>> Stashed changes
         loss.backward()
         optimizer.step()
 
@@ -128,7 +150,25 @@ for epoch in range(2):  # loop over the dataset multiple times
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
             running_loss = 0.0
 
+<<<<<<< Updated upstream
 print('Finished Training')
+=======
+print('Finished Training.')
+
+print('Evaluating...')
+
+with torch.no_grad():
+    model.eval()
+    for i, data in enumerate(testLoader, 0):
+        image, x, y, t, h, w = data
+        outputs = model(image)
+        predictions = model.classify(outputs)
+        print("PREDICTIONS : ",predictions)
+
+        targetList = [x, y, t, h, w]
+        targetTensor = torch.FloatTensor(targetList)
+        targetTensor = targetTensor.unsqueeze(0)
+>>>>>>> Stashed changes
 
 
 
