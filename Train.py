@@ -99,6 +99,83 @@ class NeuralNetwork(nn.Module):
         return x
 
 
+<<<<<<< Updated upstream
+=======
+def rotate(origin, point, angle):
+    ox, oy = origin
+    px, py = point
+
+    qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+    qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+    return qx, qy
+
+
+def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
+    # Top left to top right
+    plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]])
+    # Top left to bottom left
+    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]])
+    # Top right to bottom right
+    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]])
+    # Bottom left to bottom right
+    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]])
+
+
+def showImageGrasp(image, x, y, t, h, w, rotation):
+    reshapedImage = image.reshape(3, 1024, 1024).permute(1, 2, 0)
+    halfHeight = h / 2
+    halfWidth = w / 2
+    # print("PERMUTED IMAGE SHAPE", reshapedImage.shape)
+
+    plt.imshow(reshapedImage)
+
+    topLeft = [x - halfWidth, y - halfHeight]
+    topRight = [x + halfWidth, y - halfHeight]
+    bottomLeft = [x - halfWidth, y + halfHeight]
+    bottomRight = [x + halfWidth, y + halfHeight]
+
+    if rotation:
+        topLeftRotated = rotate([x, y], topLeft, t)
+        topRightRotated = rotate([x, y], topRight, t)
+        bottomLeftRotated = rotate([x, y], bottomLeft, t)
+        bottomRightRotated = rotate([x, y], bottomRight, t)
+
+        # plot the center point
+        plt.plot([x], [y], 'x')
+        plotCorners(topLeftRotated, topRightRotated, bottomLeftRotated, bottomRightRotated)
+    else:
+        plt.plot([x], [y], 'x')
+        plotCorners(topLeft, topRight, bottomLeft, bottomRight)
+
+    plt.show()
+# generated and actual in format (x,y,t,h,w)
+
+
+def rectangleMetricEval(generated, groundTruth):
+    similarityThreshold = 10 
+    intersect = 0
+    if abs(groundTruth[2]-generated[2]) > 30:
+        return False
+    for x in range(len(generated)):
+        if x != 2:
+            if abs(groundTruth[x]-generated[x]) > similarityThreshold:
+                intersect += 1
+                
+    return abs(intersect/(8-intersect)) > 0.25
+                
+                
+    
+
+            
+            
+            
+    
+    
+    
+    
+    
+
+>>>>>>> Stashed changes
 model = NeuralNetwork()
 loss_fn = nn.MSELoss()
 optimizer = Adam(model.parameters(), lr=0.05)
@@ -121,7 +198,22 @@ for epoch in range(2):  # loop over the dataset multiple times
         loss = loss_fn(outputs, target)
         optimizer.zero_grad()
 
+<<<<<<< Updated upstream
         loss.backward()
+=======
+        loss = loss_fn(outputs, targetTensor)
+
+
+
+
+        loss.backward()
+        
+
+        # print("CURRENT LOSS: ", loss.data)
+        # print("\nOUTPUT_TENSOR: ", outputs.data)
+        # print("TARGET_TENSOR: ", targetTensor)
+
+>>>>>>> Stashed changes
         optimizer.step()
 
         # print statistics
@@ -130,4 +222,39 @@ for epoch in range(2):  # loop over the dataset multiple times
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
             running_loss = 0.0
 
+<<<<<<< Updated upstream
 print('Finished Training')
+=======
+print('Finished Training.')
+
+print('Evaluating...')
+evaluations = []
+with torch.no_grad():
+    model.eval()
+    for i, data in enumerate(testLoader, 0):
+        image, x, y, t, h, w = data
+        outputs = model(image)
+
+        targetList = [x, y, t, h, w]
+        targetTensor = torch.FloatTensor(targetList)
+        targetTensor = targetTensor.unsqueeze(0)
+
+        output_data = outputs.data
+        output_data = output_data.tolist()[0]
+        
+        showImageGrasp(image, output_data[0], output_data[1], output_data[2], output_data[3], output_data[4], rotation=True)
+        showImageGrasp(image, x, y, t, h, w, rotation=True)
+        if rectangleMetricEval(output_data,targetList):
+            evaluations.append(1)
+        else:
+            evaluations.append(0)
+
+        print(output_data)
+
+
+print('Finished Evaluating.')
+accuracy = sum(evaluations)/len((evaluations))
+print("Overall Accuracy: ", accuracy)
+
+
+>>>>>>> Stashed changes
