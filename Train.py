@@ -13,13 +13,14 @@ import matplotlib.pyplot as plt
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-# Dataset class for retrieving data from resource files.
-class GraspDataset(Dataset):
-    def __init__(self, datafolder, datatype='train', transform=None):
+# Dataset class for retrieving TRAINING data from resource files.
+class GraspTrainDataset(Dataset):
+    def __init__(self, datafolder):
         self.datafolder = datafolder
         self.image_files_list = []
         self.grasp_files_list = []
-        for root, dirs, files in os.walk(ROOT_DIR + "/Data/training"):
+
+        for root, dirs, files in os.walk(datafolder):
             for file in files:
                 # Count the file
                 if file.endswith('RGB.png'):
@@ -34,12 +35,12 @@ class GraspDataset(Dataset):
         return len(self.image_files_list)
 
     def __getitem__(self, idx):
-        img_name = os.path.join(self.image_files_list[idx])
-        image = cv2.imread(img_name)
+        img_path = self.image_files_list[idx]
+        image = cv2.imread(img_path)
         transform = transforms.ToTensor()
-        imageTensor = transform(image)
+        image_tensor = transform(image)
 
-        search_term = img_name[0:-8]
+        search_term = img_path[0:-8]
 
         for file in self.grasp_files_list:
             if file.startswith(search_term):
@@ -50,14 +51,38 @@ class GraspDataset(Dataset):
         grasp = grasps.sample()
         grasp_list = grasp.values.tolist()
 
-        return imageTensor, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
+        return image_tensor, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
 
 
-trainSet = GraspDataset(datafolder=ROOT_DIR + "/Data/training/", datatype='train')
-testSet = GraspDataset(datafolder=ROOT_DIR + "/Data/testing/")
+# Dataset class for retrieving TESTING data (image only) from resource files.
+class GraspTestDataset(Dataset):
+    def __init__(self, datafolder):
+        self.datafolder = datafolder
+        self.image_files_list = []
+
+        for file in os.listdir(datafolder):
+            if file.endswith('RGB.png'):
+                self.image_files_list.append(file)
+
+        print(self.image_files_list)
+
+    def __len__(self):
+        return len(self.image_files_list)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(ROOT_DIR, self.datafolder, self.image_files_list[idx])
+        image = cv2.imread(img_path)
+        transform = transforms.ToTensor()
+        image_tensor = transform(image)
+
+        return image_tensor
+
+
+trainSet = GraspTrainDataset(datafolder=ROOT_DIR + "/Data/training/")
+testSet = GraspTestDataset(datafolder=ROOT_DIR + "/Data/testing/")
 
 trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
-testLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=0)
+testLoader = DataLoader(testSet, batch_size=1, shuffle=True, num_workers=0)
 
 
 # FIXME: Redo the layer size maths - it's still slightly off.
@@ -157,7 +182,7 @@ optimizer = Adam(model.parameters(), lr=0.001)
 
 # Training Loop
 print('Starting training...')
-for epoch in range(3):  # loop over the dataset multiple times
+for epoch in range(1):  # loop over the dataset multiple times
     print("Training Epoch: ", epoch)
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [image, x-coord, y-coord, theta (rotation), height, width]
@@ -191,18 +216,12 @@ print('Evaluating...')
 with torch.no_grad():
     model.eval()
     for i, data in enumerate(testLoader, 0):
-        image, x, y, t, h, w = data
+        image = data
         outputs = model(image)
-
-        targetList = [x, y, t, h, w]
-        targetTensor = torch.FloatTensor(targetList)
-        targetTensor = targetTensor.unsqueeze(0)
 
         output_data = outputs.data
         output_data = output_data.tolist()[0]
 
         showImageGrasp(image, output_data[0], output_data[1], output_data[2], output_data[3], output_data[4], rotation=True)
-
-        print(output_data)
 
 print('Finished Evaluating.')
