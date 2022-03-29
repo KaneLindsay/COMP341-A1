@@ -78,9 +78,10 @@ class NeuralNetwork(nn.Module):
         self.fc1 = nn.Linear(in_features=50176, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w]
+        
         self.output = nn.Sequential(
             nn.Flatten(0),
-            nn.Linear(in_features=5, out_features=10)            
+            nn.Linear(in_features=5, out_features=10)      
         )
 
     def forward(self, x):
@@ -126,12 +127,12 @@ for epoch in range(2):  # loop over the dataset multiple times
 
         # forward + backward + optimize
         outputs = model(image)
-<<<<<<< Updated upstream
         print(outputs)
         loss = loss_fn(outputs, target)
         optimizer.zero_grad()
-=======
-        predictions = model.classify(outputs)        
+
+        predictions = model.classify(outputs) 
+        print(predictions)
 
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
@@ -140,20 +141,12 @@ for epoch in range(2):  # loop over the dataset multiple times
         # showImageGrasp(image, x, y, t, h, w, rotation=True)
 
         loss = loss_fn(outputs, targetTensor)
->>>>>>> Stashed changes
         loss.backward()
         optimizer.step()
 
-        # print statistics
-        running_loss += loss.item()
-        if i % 2000 == 1999:    # print every 2000 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
-            running_loss = 0.0
 
-<<<<<<< Updated upstream
+
 print('Finished Training')
-=======
-print('Finished Training.')
 
 print('Evaluating...')
 
@@ -168,7 +161,6 @@ with torch.no_grad():
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
         targetTensor = targetTensor.unsqueeze(0)
->>>>>>> Stashed changes
 
 
 
