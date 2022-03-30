@@ -11,6 +11,18 @@ import cv2
 import matplotlib.pyplot as plt
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+NUM_CLASSES = 10
+CLASS_NAMES = os.listdir(ROOT_DIR + "/Data/training/")
+
+classMap = {}
+class_array_zeros = []
+for i in range(NUM_CLASSES):
+    class_array_zeros.append(0)
+for c in range(NUM_CLASSES):
+    class_gt = class_array_zeros.copy()
+    class_gt[c] = 1
+    classMap[CLASS_NAMES[c]] = class_gt
+print(classMap)
 
 
 # Dataset class for retrieving TRAINING data from resource files.
@@ -41,6 +53,7 @@ class GraspTrainDataset(Dataset):
         image_tensor = transform(image)
 
         search_term = img_path[0:-8]
+        object_class = search_term.split("_")[1]
 
         for file in self.grasp_files_list:
             if file.startswith(search_term):
@@ -51,7 +64,8 @@ class GraspTrainDataset(Dataset):
         grasp = grasps.sample()
         grasp_list = grasp.values.tolist()
 
-        return image_tensor, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
+        return image_tensor, grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][
+            4], object_class
 
 
 # Dataset class for retrieving TESTING data (image only) from resource files.
@@ -103,7 +117,8 @@ class NeuralNetwork(nn.Module):
         # Third pooling -> 14 * 14 * 256
         self.fc1 = nn.Linear(in_features=57600, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
-        self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w]
+        self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w] + 10 classes
+        self.fc3class = nn.Linear(in_features=512, out_features=NUM_CLASSES) # 10 Output Neurons (Class Num)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -122,9 +137,10 @@ class NeuralNetwork(nn.Module):
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        g = self.fc3(x)
+        c = self.fc3class(x)
 
-        return x
+        return g, c
 
 
 def rotate(origin, point, angle):
@@ -177,37 +193,48 @@ def showImageGrasp(image, x, y, t, h, w, rotation):
 
 
 model = NeuralNetwork()
-loss_fn = nn.MSELoss()
+box_loss_fn = nn.CrossEntropyLoss()
+class_loss_fn = nn.MSELoss()
 optimizer = Adam(model.parameters(), lr=0.001)
 
 # Training Loop
 print('Starting training...')
-for epoch in range(1):  # loop over the dataset multiple times
+for epoch in range(3):  # loop over the dataset multiple times
     print("Training Epoch: ", epoch)
     for i, data in enumerate(trainLoader, 0):
         # get the inputs; data is a list of [image, x-coord, y-coord, theta (rotation), height, width]
-        image, x, y, t, h, w = data
+        image, x, y, t, h, w, object_class = data
         # print("IMAGE SHAPE", image.shape)
 
         optimizer.zero_grad()
 
-        outputs = model(image)
+        boxOutputs, classOutputs = model(image)
+        # print("Box Out: ", boxOutputs, "Class Out: ", classOutputs)
+
+        classGroundTruth = []
+
 
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
         targetTensor = targetTensor.unsqueeze(0)
 
+        classGT = classMap[object_class[0]]
+        classTensor = torch.FloatTensor(classGT)
+        classTensor = classTensor.unsqueeze(0)
+
         # showImageGrasp(image, x, y, t, h, w, rotation=True)
 
-        loss = loss_fn(outputs, targetTensor)
-        loss.backward()
+        box_loss = box_loss_fn(boxOutputs, targetTensor)
+        box_loss.backward(retain_graph=True)
+
+        class_loss = class_loss_fn(classOutputs, classTensor)
+        class_loss.backward()
 
         # print("CURRENT LOSS: ", loss.data)
         # print("\nOUTPUT_TENSOR: ", outputs.data)
         # print("TARGET_TENSOR: ", targetTensor)
 
         optimizer.step()
-
 
 print('Finished Training.')
 
@@ -217,11 +244,12 @@ with torch.no_grad():
     model.eval()
     for i, data in enumerate(testLoader, 0):
         image = data
-        outputs = model(image)
+        outputs, object_class = model(image)
 
         output_data = outputs.data
         output_data = output_data.tolist()[0]
 
-        showImageGrasp(image, output_data[0], output_data[1], output_data[2], output_data[3], output_data[4], rotation=True)
+        showImageGrasp(image, output_data[0], output_data[1], output_data[2], output_data[3], output_data[4],
+                       rotation=True)
 
 print('Finished Evaluating.')
