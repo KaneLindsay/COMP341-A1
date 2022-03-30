@@ -119,6 +119,7 @@ class NeuralNetwork(nn.Module):
         self.fc2 = nn.Linear(in_features=512, out_features=512)
         self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w] + 10 classes
         self.fc3class = nn.Linear(in_features=512, out_features=NUM_CLASSES) # 10 Output Neurons (Class Num)
+        self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -139,6 +140,7 @@ class NeuralNetwork(nn.Module):
         x = F.relu(self.fc2(x))
         g = self.fc3(x)
         c = self.fc3class(x)
+        c = self.softmax(c)
 
         return g, c
 
@@ -195,7 +197,7 @@ def showImageGrasp(image, x, y, t, h, w, rotation):
 model = NeuralNetwork()
 box_loss_fn = nn.CrossEntropyLoss()
 class_loss_fn = nn.MSELoss()
-optimizer = Adam(model.parameters(), lr=0.001)
+optimizer = Adam(model.parameters(), lr=0.01)
 
 # Training Loop
 print('Starting training...')
@@ -209,7 +211,7 @@ for epoch in range(3):  # loop over the dataset multiple times
         optimizer.zero_grad()
 
         boxOutputs, classOutputs = model(image)
-        # print("Box Out: ", boxOutputs, "Class Out: ", classOutputs)
+        print("Box Out: ", boxOutputs, "\nClass Out: ", classOutputs)
 
         classGroundTruth = []
 
@@ -229,6 +231,9 @@ for epoch in range(3):  # loop over the dataset multiple times
 
         class_loss = class_loss_fn(classOutputs, classTensor)
         class_loss.backward()
+
+        print("Box Loss: ", box_loss)
+        print("Class Loss: ", class_loss)
 
         # print("CURRENT LOSS: ", loss.data)
         # print("\nOUTPUT_TENSOR: ", outputs.data)
