@@ -213,8 +213,6 @@ for epoch in range(3):  # loop over the dataset multiple times
         boxOutputs, classOutputs = model(image)
         print("Box Out: ", boxOutputs, "\nClass Out: ", classOutputs)
 
-        classGroundTruth = []
-
 
         targetList = [x, y, t, h, w]
         targetTensor = torch.FloatTensor(targetList)
