@@ -31,7 +31,7 @@ class GraspTrainDataset(Dataset):
         self.datafolder = datafolder
         self.image_files_list = []
         self.grasp_files_list = []
-
+        self.depth_files_list = []
         for root, dirs, files in os.walk(datafolder):
             for file in files:
                 # Count the file
@@ -39,6 +39,8 @@ class GraspTrainDataset(Dataset):
                     self.image_files_list.append(root + "/" + file)
                 elif file.endswith('.txt'):
                     self.grasp_files_list.append(root + "/" + file)
+                elif file.endswith('.tiff'):
+                    self.depth_files_list.append(root + "/" + file)
 
     # print(self.image_files_list)
     # print(self.grasp_files_list)
@@ -156,13 +158,13 @@ def rotate(origin, point, angle):
 
 def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
     # Top left to top right
-    plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]])
+    plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]], color='green')
     # Top left to bottom left
-    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]])
+    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]], color='yellow')
     # Top right to bottom right
-    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]])
+    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]], color='yellow')
     # Bottom left to bottom right
-    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]])
+    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]], color='green')
 
 
 def showImageGrasp(image, x, y, t, h, w, rotation):
