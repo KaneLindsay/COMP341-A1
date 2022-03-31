@@ -14,5 +14,3 @@ We use the notation [x, y, t, h, w] to define a grasp, where:
 </ul>
 
 This project uses PyTorch for building neural networks, so please install this before running.
-
-<i>Approaches inspired by the paper 'Real-Time Grasp Detection Using Convolutional Neural Networks' by J. Redmon and A. Angelova, available at https://arxiv.org/pdf/1412.3128.pdf.</i>
