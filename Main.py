@@ -12,4 +12,4 @@ def run(train=False, test=True):
 
 if __name__ == '__main__':
     freeze_support()
-    run(train=False)
+    run(train=True)

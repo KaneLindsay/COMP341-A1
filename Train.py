@@ -195,16 +195,21 @@ def rectangleMetricEval(generated, ground_truth):
 # Training Loop
 def TrainNetwork(num_epochs=100):
     train_set = GraspTrainDataset(datafolder=ROOT_DIR + "/Data/training/")
-    train_loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=4)
     model = NeuralNetwork()
     model.to(device)
-    box_loss_fn = nn.MSELoss()
+    grasp_loss_fn = nn.MSELoss()
     class_loss_fn = nn.CrossEntropyLoss()
+    grasp_losses = []
+    class_losses = []
+
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.001)
     print('Starting training...')
     for epoch in range(num_epochs):  # loop over the dataset multiple times
+        train_loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=4)
         rectangle_metric_pass = 0
         rectangle_metric_fail = 0
+        epoch_grasp_loss = 0
+        epoch_class_loss = 0
         print("Training Epoch: ", epoch)
         for i, data in enumerate(train_loader, 0):
             # get the inputs; data is a list of [image, x-coord, y-coord, theta (rotation), height, width]
@@ -225,39 +230,34 @@ def TrainNetwork(num_epochs=100):
             class_target_tensor = torch.FloatTensor(class_target)
             class_target_tensor = class_target_tensor.unsqueeze(0)
 
-            if rectangleMetricEval(grasp_prediction_list, grasp_target_list):
-                rectangle_metric_pass += 1
-            else:
-                rectangle_metric_fail += 1
-            print("Rectangle Metric Pass-Rate: ",
-                  round(rectangle_metric_pass/((rectangle_metric_pass+rectangle_metric_fail)*100), 2)
-                  )
+            # if rectangleMetricEval(grasp_prediction_list, grasp_target_list):
+            #     rectangle_metric_pass += 1
+            # else:
+            #     rectangle_metric_fail += 1
+            # print("Rectangle Metric Pass-Rate: ",
+            #       round(rectangle_metric_pass/((rectangle_metric_pass+rectangle_metric_fail)*100), 2)
+            #       , "%")
 
             # Train on only image classification for _ epochs.
-            if epoch >= 20:
+            if epoch >= 5:
                 # Grasp regression
-                box_loss = box_loss_fn(grasp_prediction.to('cpu'), grasp_target_tensor)
-                box_loss.backward(retain_graph=True)
+                grasp_loss = grasp_loss_fn(grasp_prediction.to('cpu'), grasp_target_tensor)
+                epoch_grasp_loss += grasp_loss.item()
+                grasp_loss.backward(retain_graph=True)
 
             # Image classification
-            # print(class_prediction.to('cpu'))
-            # print(class_target_tensor)
             class_loss = class_loss_fn(class_prediction.to('cpu'), class_target_tensor)
+            epoch_class_loss += class_loss.item()
             class_loss.backward()
-
-            # print("\nBox Loss: ", box_loss)
-            # print("Class Loss: ", class_loss)
 
             optimizer.step()
 
             optimizer.zero_grad()
 
-            if epoch == num_epochs - 1:
-                output_data = grasp_prediction.to('cpu').data.tolist()[0]
-                print(output_data)
-                print("PING")
-                showImageGrasp(image, output_data[0], output_data[1], output_data[2], output_data[3], output_data[4],
-                               rotation=True)
+        class_losses.append(round(epoch_class_loss/len(train_loader), 2))
+        grasp_losses.append(round(epoch_grasp_loss/len(train_loader), 2))
+        print("Average Class Loss: ", round(epoch_class_loss/len(train_loader), 2))
+        print("Average Grasp Loss: ", round(epoch_grasp_loss/len(train_loader), 2))
 
     torch.save(model.state_dict(), "modelface")
     print('Finished Training.')
