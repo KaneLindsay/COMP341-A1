@@ -80,7 +80,7 @@ class NeuralNetwork(nn.Module):
     def __init__(self):
         super(NeuralNetwork, self).__init__()
         # Initial image size -> 1024*1024*3
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2)  # Output dim: 510 * 510 * 3
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2)  # Output dim: 510 * 510 * 64
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2)  # 254 * 254 * 64
 
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=2)  # 126*126*128
@@ -193,7 +193,7 @@ def TrainNetwork():
     model.to(device)
     box_loss_fn = nn.MSELoss()
     class_loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.001)
     print('Starting training...')
     for epoch in range(100):  # loop over the dataset multiple times
         trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=4)
@@ -209,6 +209,7 @@ def TrainNetwork():
             grasps = grasps.numpy()[0]
 
             grasp_list = grasps[random.randrange(0, len(grasps))]
+            # grasp_list = findClosestGrasp(grasps, box_list[0], box_list[1])
 
             x, y, t, h, w = grasp_list[0], grasp_list[1], grasp_list[2], grasp_list[3], grasp_list[4]
 
@@ -226,19 +227,19 @@ def TrainNetwork():
             # showImageGrasp(image, x, y, t, h, w, rotation=True)
 
             # Train on only image classification for _ epochs.
-            if epoch >= 0:
+            if epoch >= 20:
                 # Grasp regression
                 box_loss = box_loss_fn(boxOutputs.to('cpu'), targetTensor)
                 box_loss.backward(retain_graph=True)
 
             # Image classification
-            print(classOutputs.to('cpu'))
-            print(classTensor)
+            # print(classOutputs.to('cpu'))
+            # print(classTensor)
             class_loss = class_loss_fn(classOutputs.to('cpu'), classTensor)
             class_loss.backward()
 
-            print("\nBox Loss: ", box_loss)
-            print("Class Loss: ", class_loss)
+            # print("\nBox Loss: ", box_loss)
+            # print("Class Loss: ", class_loss)
 
             optimizer.step()
 

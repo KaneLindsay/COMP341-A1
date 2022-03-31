@@ -9,4 +9,4 @@ def run(train=False, test=True):
         TestNetwork()
 
 
-run()
+run(train=True)
