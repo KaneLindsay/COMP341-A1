@@ -1,7 +1,6 @@
 import math
 import os
 import random
-
 import pandas
 import torch
 from torch import nn
@@ -27,7 +26,6 @@ for c in range(NUM_CLASSES):
     class_gt[c] = 1
     classMap[CLASS_NAMES[c]] = class_gt
 print(classMap)
-
 
 # Dataset class for retrieving TRAINING data from resource files.
 class GraspTrainDataset(Dataset):
@@ -136,13 +134,13 @@ def rotate(origin, point, angle):
 
 def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
     # Top left to top right
-    plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]])
+    plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]], color="yellow")
     # Top left to bottom left
-    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]])
+    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]],color="green")
     # Top right to bottom right
-    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]])
+    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]],color="green")
     # Bottom left to bottom right
-    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]])
+    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]],color="yellow")
 
 
 def showImageGrasp(image, x, y, t, h, w, rotation):
@@ -224,7 +222,7 @@ def TrainNetwork():
             classTensor = torch.FloatTensor(classGT)
             classTensor = classTensor.unsqueeze(0)
 
-            # showImageGrasp(image, x, y, t, h, w, rotation=True)
+            showImageGrasp(image, x, y, t, h, w, rotation=True)
 
             # Train on only image classification for _ epochs.
             if epoch >= 20:
