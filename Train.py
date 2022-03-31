@@ -5,18 +5,19 @@ import pandas
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 import cv2
 import matplotlib.pyplot as plt
 
+# Training configs
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 NUM_CLASSES = 10
 CLASS_NAMES = os.listdir(ROOT_DIR + "/Data/training/")
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# Map each class to a unique ground truth array, e.g. [0,0,0,1,0,0,0,0,0,0]
 classMap = {}
 class_array_zeros = []
 for i in range(NUM_CLASSES):
@@ -27,6 +28,7 @@ for c in range(NUM_CLASSES):
     classMap[CLASS_NAMES[c]] = class_gt
 print(classMap)
 
+
 # Dataset class for retrieving TRAINING data from resource files.
 class GraspTrainDataset(Dataset):
     def __init__(self, datafolder):
@@ -36,14 +38,11 @@ class GraspTrainDataset(Dataset):
 
         for root, dirs, files in os.walk(datafolder):
             for file in files:
-                # Count the file
+                # Find RGB and .txt (grasp) files
                 if file.endswith('RGB.png'):
                     self.image_files_list.append(root + "/" + file)
                 elif file.endswith('.txt'):
                     self.grasp_files_list.append(root + "/" + file)
-
-    # print(self.image_files_list)
-    # print(self.grasp_files_list)
 
     def __len__(self):
         return len(self.image_files_list)
@@ -54,6 +53,7 @@ class GraspTrainDataset(Dataset):
         transform = transforms.ToTensor()
         image_tensor = transform(image)
 
+        # Find corresponding grasp file for image
         search_term = img_path[0:-8]
         object_class = search_term.split("_")[1]
 
@@ -62,14 +62,8 @@ class GraspTrainDataset(Dataset):
                 grasps_file = os.path.join(self.datafolder, file)
 
         grasps = pandas.read_csv(grasps_file, sep=';', names=["x", "y", "t", "h", "w"])
-        # Pick a random grasp to return as the ground truth.
 
-        # grasp_list[0][0], grasp_list[0][1], grasp_list[0][2], grasp_list[0][3], grasp_list[0][4]
         return image_tensor, grasps.to_numpy(), object_class
-
-
-trainSet = GraspTrainDataset(datafolder=ROOT_DIR + "/Data/training/")
-trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=4)
 
 
 # FIXME: Redo the layer size maths - it's still slightly off.
@@ -91,8 +85,8 @@ class NeuralNetwork(nn.Module):
         self.dropout = nn.Dropout(p=0.2)
         self.fc1 = nn.Linear(in_features=57600, out_features=512)
         self.fc2 = nn.Linear(in_features=512, out_features=512)
-        self.fc3 = nn.Linear(in_features=512, out_features=5)   # 5 Output Neurons: [x, y, θ, h, w]
-        self.fc3class = nn.Linear(in_features=512, out_features=NUM_CLASSES)    # 10 Output Neurons (Class Num)
+        self.fc3 = nn.Linear(in_features=512, out_features=5)  # 5 Output Neurons: [x, y, θ, h, w]
+        self.fc3class = nn.Linear(in_features=512, out_features=NUM_CLASSES)  # 10 Output Neurons (Class Num)
         self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
@@ -136,11 +130,11 @@ def plotCorners(topLeft, topRight, bottomLeft, bottomRight):
     # Top left to top right
     plt.plot([topLeft[0], topRight[0]], [topLeft[1], topRight[1]], color="yellow")
     # Top left to bottom left
-    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]],color="green")
+    plt.plot([topLeft[0], bottomLeft[0]], [topLeft[1], bottomLeft[1]], color="green")
     # Top right to bottom right
-    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]],color="green")
+    plt.plot([topRight[0], bottomRight[0]], [topRight[1], bottomRight[1]], color="green")
     # Bottom left to bottom right
-    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]],color="yellow")
+    plt.plot([bottomLeft[0], bottomRight[0]], [bottomLeft[1], bottomRight[1]], color="yellow")
 
 
 def showImageGrasp(image, x, y, t, h, w, rotation):
@@ -185,55 +179,70 @@ def findClosestGrasp(possible_grasps, x1, y1):
     return closest_grasp
 
 
+def rectangleMetricEval(generated, ground_truth):
+    similarity_threshold = 10
+    intersect = 0
+    if abs(ground_truth[2] - generated[2]) > 30:
+        return False
+    for x in range(len(generated)):
+        if x != 2:
+            if abs(ground_truth[x] - generated[x]) > similarity_threshold:
+                intersect += 1
+
+    return abs(intersect / (8 - intersect)) > 0.25
+
+
 # Training Loop
-def TrainNetwork():
+def TrainNetwork(num_epochs=100):
+    train_set = GraspTrainDataset(datafolder=ROOT_DIR + "/Data/training/")
+    train_loader = DataLoader(train_set, batch_size=1, shuffle=True, num_workers=4)
     model = NeuralNetwork()
     model.to(device)
     box_loss_fn = nn.MSELoss()
     class_loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.001)
     print('Starting training...')
-    for epoch in range(100):  # loop over the dataset multiple times
-        trainLoader = DataLoader(trainSet, batch_size=1, shuffle=True, num_workers=4)
+    for epoch in range(num_epochs):  # loop over the dataset multiple times
+        rectangle_metric_pass = 0
+        rectangle_metric_fail = 0
         print("Training Epoch: ", epoch)
-        for i, data in enumerate(trainLoader, 0):
+        for i, data in enumerate(train_loader, 0):
             # get the inputs; data is a list of [image, x-coord, y-coord, theta (rotation), height, width]
-            image, grasps, object_class = data
+            image, gt_grasps, object_class = data
 
-            boxOutputs, classOutputs = model(image.to(device))
-            # print(boxOutputs)
-            box_list = boxOutputs.to('cpu').data.tolist()[0]
+            grasp_prediction, class_prediction = model(image.to(device))
+            grasp_prediction_list = grasp_prediction.to('cpu').data.tolist()[0]
 
-            grasps = grasps.numpy()[0]
+            gt_grasps = gt_grasps.numpy()[0]
 
-            grasp_list = grasps[random.randrange(0, len(grasps))]
-            # grasp_list = findClosestGrasp(grasps, box_list[0], box_list[1])
+            grasp_target_list = gt_grasps[random.randrange(0, len(gt_grasps))]
+            # grasp_list = findClosestGrasp(gt_grasps, grasp_prediction_list[0], grasp_prediction_list[1])
 
-            x, y, t, h, w = grasp_list[0], grasp_list[1], grasp_list[2], grasp_list[3], grasp_list[4]
+            grasp_target_tensor = torch.FloatTensor(grasp_target_list)
+            grasp_target_tensor = grasp_target_tensor.unsqueeze(0)
 
+            class_target = classMap[object_class[0]]
+            class_target_tensor = torch.FloatTensor(class_target)
+            class_target_tensor = class_target_tensor.unsqueeze(0)
 
-            # print("Box Out: ", boxOutputs, "\nClass Out: ", classOutputs)
-
-            targetList = [x, y, t, h, w]
-            targetTensor = torch.FloatTensor(targetList)
-            targetTensor = targetTensor.unsqueeze(0)
-
-            classGT = classMap[object_class[0]]
-            classTensor = torch.FloatTensor(classGT)
-            classTensor = classTensor.unsqueeze(0)
-
-            showImageGrasp(image, x, y, t, h, w, rotation=True)
+            if rectangleMetricEval(grasp_prediction_list, grasp_target_list):
+                rectangle_metric_pass += 1
+            else:
+                rectangle_metric_fail += 1
+            print("Rectangle Metric Pass-Rate: ",
+                  round(rectangle_metric_pass/((rectangle_metric_pass+rectangle_metric_fail)*100), 2)
+                  )
 
             # Train on only image classification for _ epochs.
             if epoch >= 20:
                 # Grasp regression
-                box_loss = box_loss_fn(boxOutputs.to('cpu'), targetTensor)
+                box_loss = box_loss_fn(grasp_prediction.to('cpu'), grasp_target_tensor)
                 box_loss.backward(retain_graph=True)
 
             # Image classification
-            # print(classOutputs.to('cpu'))
-            # print(classTensor)
-            class_loss = class_loss_fn(classOutputs.to('cpu'), classTensor)
+            # print(class_prediction.to('cpu'))
+            # print(class_target_tensor)
+            class_loss = class_loss_fn(class_prediction.to('cpu'), class_target_tensor)
             class_loss.backward()
 
             # print("\nBox Loss: ", box_loss)
@@ -243,8 +252,8 @@ def TrainNetwork():
 
             optimizer.zero_grad()
 
-            if (epoch == 99):
-                output_data = boxOutputs.to('cpu').data.tolist()[0]
+            if epoch == num_epochs - 1:
+                output_data = grasp_prediction.to('cpu').data.tolist()[0]
                 print(output_data)
                 print("PING")
                 showImageGrasp(image, output_data[0], output_data[1], output_data[2], output_data[3], output_data[4],
@@ -253,5 +262,3 @@ def TrainNetwork():
     torch.save(model.state_dict(), "modelface")
     print('Finished Training.')
 
-
-# TrainNetwork()

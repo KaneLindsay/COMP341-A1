@@ -37,14 +37,14 @@ class GraspTestDataset(Dataset):
 
 def TestNetwork():
     print('Testing...')
-    testSet = GraspTestDataset(datafolder=ROOT_DIR + "/Data/testing/")
-    testLoader = DataLoader(testSet, batch_size=1, shuffle=True, num_workers=4)
+    test_set = GraspTestDataset(datafolder=ROOT_DIR + "/Data/testing/")
+    test_loader = DataLoader(test_set, batch_size=1, shuffle=True, num_workers=4)
 
     # Testing
     model = NeuralNetwork()
     model.load_state_dict(torch.load("modelface"))
     model.to(device)
-    for i, data in enumerate(testLoader, 0):
+    for i, data in enumerate(test_loader, 0):
         image = data
         outputs, object_class = model(image.to(device))
 
